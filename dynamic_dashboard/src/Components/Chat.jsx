@@ -19,6 +19,7 @@ import { flushSync } from "react-dom";
 import { fetchDashboardData } from "../reducers/dashboardfetch";
 import DynamicAutoCharts from "../charts/DynamicAutoChart";
 import { setConfigData } from "../reducers/payload";
+import { saveConfig } from "../reducers/Saveconfig";
 
 const Chat = () => {
   // State management
@@ -33,7 +34,7 @@ const Chat = () => {
   const [threadId, setThreadId] = useState("");
   const [isNewThread, setIsNewThread] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
-  const dashboarddata = useSelector((state) => state.Apiresponse);
+  const dashboarddata = useSelector((state) => state.dashboardData);
   // Refs
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -156,7 +157,7 @@ const Chat = () => {
         };
 
         const response = await fetch(
-          "https://7870dfd2c50b.ngrok-free.app/kapture/dashboard/payload",
+          "https://f5bec5671aab.ngrok-free.app/kapture/dashboard/payload",
           {
             method: "POST",
             headers: {
@@ -301,18 +302,16 @@ const Chat = () => {
     setShowPreview((prev) => !prev);
   };
 
-  const handleFullDashboard = useCallback(() => {
+  const handleSaveConfig = () => {
     if (!finalPayload) return;
-
-    const dashboardState = {
-      payload: finalPayload,
-      timestamp: new Date().toISOString(),
-    };
-
-    // In a real app, you'd use proper state management or navigation
-    console.log("Saving dashboard state:", dashboardState);
-    alert("Dashboard state saved! (Check console for details)");
-  }, [finalPayload]);
+    dispatch(
+      saveConfig({
+        payload: JSON.stringify(finalPayload),
+        chart_type: chartType,
+        thread_id: threadId,
+      })
+    );
+  };
 
   const resetThread = useCallback(() => {
     setThreadId("");
@@ -469,7 +468,7 @@ const Chat = () => {
             </h2>
             <div className="flex items-center gap-2">
               <button
-                onClick={handleFullDashboard}
+                onClick={handleSaveConfig}
                 disabled={!finalPayload}
                 className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 text-sm"
               >
