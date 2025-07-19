@@ -1,8 +1,9 @@
+// reducers/dashboardData.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 
 // Async thunk to fetch dashboard data
 export const fetchDashboardData = createAsyncThunk(
-  "dashboard/fetchData",
+  "dashboardData/fetchData", // Changed from "dashboard/fetchData"
   async (payload, { rejectWithValue }) => {
     try {
       const today = new Date();
@@ -52,36 +53,36 @@ export const fetchDashboardData = createAsyncThunk(
   }
 );
 
-const dashboardfetch = createSlice({
-  name: "dashboard",
+const dashboardDataSlice = createSlice({
+  name: "dashboardData", // Changed from "dashboard"
   initialState: {
     data: null,
-    loading: false,
+    status: "idle", // Changed from loading to status for consistency
     error: null,
   },
   reducers: {
     resetDashboard: (state) => {
       state.data = null;
       state.error = null;
-      state.loading = false;
+      state.status = "idle";
     },
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchDashboardData.pending, (state) => {
-        state.loading = true;
+        state.status = "loading";
         state.error = null;
       })
       .addCase(fetchDashboardData.fulfilled, (state, action) => {
-        state.loading = false;
+        state.status = "succeeded";
         state.data = action.payload;
       })
       .addCase(fetchDashboardData.rejected, (state, action) => {
-        state.loading = false;
+        state.status = "failed";
         state.error = action.payload;
       });
   },
 });
 
-export const { resetDashboard } = dashboardfetch.actions;
-export default dashboardfetch.reducer;
+export const { resetDashboard } = dashboardDataSlice.actions;
+export default dashboardDataSlice.reducer;

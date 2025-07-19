@@ -1,6 +1,7 @@
 import React from "react";
 import ReactECharts from "echarts-for-react";
 import get from "lodash.get";
+import GenericTableComponent from "./GenericTableComponent";
 
 const DynamicAutoChart = ({
   apiResponse,
@@ -9,19 +10,21 @@ const DynamicAutoChart = ({
   title = "Dynamic Auto JSON Chart",
   aggregateKey = "-20", // ✅ Default key for aggregate data
 }) => {
+  const totalKey = "-20"; // Default key for total data
   if (!apiResponse) return <p>No data to display.</p>;
-  const aggregateData = get(
-    apiResponse.data,
-    `agentIdtoFieldToFieldValueMap.${aggregateKey}`,
-    {}
-  );
+  const aggregateData = apiResponse.data.agentIdtoFieldToFieldValueMap[Number(totalKey)] || {};
+
   const fieldList = api_payload.keyToFieldList || {};
+
+  if (chartType === "table") {
+    return <GenericTableComponent apiResponse={apiResponse} api_payload={api_payload} />;
+  }
 
   // 🔥 Build chartData dynamically
   const chartData = Object.entries(fieldList)
     .flatMap(([section, fields]) =>
       fields.map((field) => {
-        const valuePath = `${section}.${field.key}.value`; // ✅ Fixed template literal
+        const valuePath = `${section}.${field.key}.value`; // ✅ Correct template literal
         const rawValue = get(aggregateData, valuePath);
         const value = parseFloat(rawValue);
         const isMissing = rawValue === undefined;
@@ -33,8 +36,8 @@ const DynamicAutoChart = ({
         };
       })
     )
-    .filter((item) => item.name); // ✅ Ensures only items with a name are included
-  // Filter out empty display names
+    .filter((item) => item.name);
+
 
   // 🎨 Common colors & gradient
   const colors = ["#3f51b5", "#f44336", "#009688", "#ffc107", "#9c27b0"];
@@ -158,7 +161,7 @@ const DynamicAutoChart = ({
     <div
       style={{
         width: "100%",
-        maxWidth: "900px",
+        maxWidth: "950px",
         margin: "20px auto",
         background: "#fff",
         boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
