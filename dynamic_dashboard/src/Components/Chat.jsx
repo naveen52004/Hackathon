@@ -156,7 +156,7 @@ const Chat = () => {
         };
 
         const response = await fetch(
-          "https://f5bec5671aab.ngrok-free.app/kapture/dashboard/payload",
+          "https://7870dfd2c50b.ngrok-free.app/kapture/dashboard/payload",
           {
             method: "POST",
             headers: {
@@ -231,13 +231,7 @@ const Chat = () => {
               }
 
               if (data.type === "chart" && Array.isArray(data.content)) {
-                if(data.content[0]==="pie_chart")
-                    setChartType("pie");
-                else if(data.content[0]==="bar_chart")
-                    setChartType("bar");
-                else if(data.content[0]==="line_chart")
-                    setChartType("line")
-                
+                setChartType(data.content[0]);
               }
 
               if (payloadData?.keyToFieldList) {
