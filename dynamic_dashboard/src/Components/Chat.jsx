@@ -47,7 +47,7 @@ const Chat = () => {
     const fetchConversationsFromAPI = async () => {
       try {
         const response = await fetch(
-          "https://cfa3f66c176c.ngrok-free.app/get-all-dashboard-conv-config "
+          "https://2c36bcde0c40.ngrok-free.app/get-all-dashboard-conv-config "
         );
         const result = await response.json();
 
@@ -189,7 +189,7 @@ const Chat = () => {
         };
 
         const response = await fetch(
-          "https://cac1bd2ba5b5.ngrok-free.app/kapture/dashboard/payload",
+          "https://1719a856b571.ngrok-free.app/kapture/dashboard/payload",
           {
             method: "POST",
             headers: {
@@ -557,7 +557,7 @@ const Chat = () => {
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50">
+        <div className="flex items-center justify-between p-4 bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50 flex-shrink-0">
           <div className="flex items-center space-x-3">
             {/* Prominent Sidebar Toggle Button */}
             <button
@@ -581,7 +581,7 @@ const Chat = () => {
               <Sparkles size={20} />
             </div>
             <div>
-              <h1 className="font-semibold text-lg">AI Assistant</h1>
+              <h1 className="font-semibold text-lg">Kap Insight Flow</h1>
               <p className="text-xs text-slate-400">
                 {fetchedConversations.find((c) => c.active)?.title ||
                   "Ready to help you"}
@@ -591,7 +591,13 @@ const Chat = () => {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 p-6 space-y-4 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <style jsx>{`
+            .flex-1::-webkit-scrollbar {
+              display: none;
+            }
+          `}</style>
+          
           {messages.length === 0 && hasInitialized && (
             <div className="flex justify-center items-center h-full">
               <div className="text-center text-slate-400">
@@ -665,7 +671,7 @@ const Chat = () => {
         </div>
 
         {/* Input Area */}
-        <div className="p-6 bg-slate-800/50 backdrop-blur-sm border-t border-slate-700/50">
+        <div className="p-6 bg-slate-800/50 backdrop-blur-sm border-t border-slate-700/50 flex-shrink-0">
           <div className="relative bg-slate-700/50 rounded-2xl border border-slate-600/50 focus-within:border-emerald-500/50 transition-colors duration-200">
             <textarea
               ref={textareaRef}
@@ -716,7 +722,7 @@ const Chat = () => {
       {showPreview && (
         <div className="w-1/2 bg-white border-l border-slate-300 flex flex-col">
           {/* Preview Header */}
-          <div className="bg-slate-100 border-b border-slate-200 p-4 flex items-center justify-between">
+          <div className="bg-slate-100 border-b border-slate-200 p-4 flex items-center justify-between flex-shrink-0">
             <h2 className="text-lg font-semibold text-slate-800">
               Dashboard Preview
             </h2>
@@ -740,7 +746,7 @@ const Chat = () => {
           </div>
 
           {/* Preview Content */}
-          <div className="flex-1 overflow-y-auto bg-gray-50">
+          <div className="flex-1 bg-gray-50 overflow-auto">
             {previewLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
