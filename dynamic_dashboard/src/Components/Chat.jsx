@@ -81,11 +81,7 @@ const Chat = () => {
     const fetchConversationsFromAPI = async () => {
       try {
         const response = await fetch(
-<<<<<<< Updated upstream
-          "https://2c36bcde0c40.ngrok-free.app/get-all-dashboard-conv-config "
-=======
           "https://2c36bcde0c40.ngrok-free.app/get-all-dashboard-conv-config"
->>>>>>> Stashed changes
         );
         const result = await response.json();
 
@@ -154,21 +150,12 @@ const Chat = () => {
     setSidebarOpen(!isSidebarOpen);
   };
 
-<<<<<<< Updated upstream
-  const dashboarddata = useSelector((state) => state.dashboardData);
-
-  // Refs
-  const messagesEndRef = useRef(null);
-  const textareaRef = useRef(null);
-  const [chartType, setChartType] = useState("");
-=======
   // FIX 4: Better dashboard data loading state management
   useEffect(() => {
     if (dashboarddata?.data?.agentIdtoFieldToFieldValueMap) {
       setPreviewLoading(false);
     }
   }, [dashboarddata]);
->>>>>>> Stashed changes
 
   // Memoized values
   const canPreview = useMemo(() => Boolean(finalPayload), [finalPayload]);
@@ -188,7 +175,7 @@ const Chat = () => {
 
   // FIX 5: Better initialization logic to prevent duplicate initial messages
   useEffect(() => {
-    if (!hasInitialized && activeConversation !== null && conversationsLoaded) {
+    if (!hasInitialized && activeConversation !== null) {
       const timer = setTimeout(() => {
         const initialMessage = {
           id: Date.now(),
@@ -205,7 +192,7 @@ const Chat = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [hasInitialized, activeConversation, conversationsLoaded]);
+  }, [hasInitialized, activeConversation]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -372,7 +359,6 @@ const Chat = () => {
     setShowPreview((prev) => !prev);
   };
 
-  // Modified save handler to show modal
   const handleSaveConfig = () => {
     if (!finalPayload) return;
     setShowSaveModal(true);
@@ -389,13 +375,13 @@ const Chat = () => {
     try {
       // Include the dashboard name in the save config
       await dispatch(
-        saveConfig({
-          payload: JSON.stringify(finalPayload),
-          chart_type: chartType,
-          thread_id: threadId,
+      saveConfig({
+        payload: JSON.stringify(finalPayload),
+        chart_type: chartType,
+        thread_id: threadId,
           dashboardName: dashboardName.trim(), // Add the dashboard name
-        })
-      );
+      })
+    );
 
       // Close modal and reset form
       setShowSaveModal(false);
@@ -411,7 +397,6 @@ const Chat = () => {
     }
   };
 
-  // FIX 6: Reset flags when creating new thread
   const resetThread = useCallback(() => {
     setThreadId("");
     setIsNewThread(true);
@@ -795,37 +780,31 @@ const Chat = () => {
           </div>
 
           {/* Preview Content */}
+          <div className="flex-1 overflow-y-auto bg-gray-50">
           {previewLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p className="text-gray-600">Loading dashboard data...</p>
               </div>
-<<<<<<< Updated upstream
-            ) : dashboarddata ? (
-              <div className="h-full w-full">
-                <DynamicAutoCharts
-                  apiResponse={dashboarddata}
-                  api_payload={dynamic_payload}
-                  chartType={chartType}
-                />
-=======
             </div>
           ) : dashboarddata?.data?.agentIdtoFieldToFieldValueMap ? (
+            <div className="h-full w-full">
             <DynamicAutoCharts
               apiResponse={dashboarddata}
-              api_payload={dynamic_payload}
+              api_payload={finalPayload}
               chartType={chartType}
             />
+            </div>
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <div className="text-4xl mb-4">📊</div>
                 <p className="text-gray-600">No data available for dashboard.</p>
->>>>>>> Stashed changes
               </div>
             </div>
           )}
+          </div>
         </div>
       )}
 
