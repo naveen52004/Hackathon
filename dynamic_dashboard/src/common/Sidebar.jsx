@@ -12,9 +12,9 @@ const Sidebar = ({ isOpen = true, setIsOpen = () => {} }) => {
   return (
     <>
       <div
-        className={`fixed top-0 left-0 h-screen bg-[rgb(0,23,43)] text-white shadow-lg z-40 transform ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        } transition-transform duration-300 ease-in-out w-64 sm:translate-x-0 sm:relative sm:w-16 sm:h-screen flex flex-col px-4 py-6`}
+        className={`fixed top-0 left-0 z-40 w-64 h-screen bg-[rgb(0,23,43)] text-white shadow-lg transform transition-transform duration-300 ease-in-out 
+    ${isOpen ? "translate-x-0" : "-translate-x-full"} 
+    sm:translate-x-0 sm:relative sm:w-16 sm:h-screen flex flex-col px-4 py-6`}
       >
         {/* Back Button - Mobile Only */}
         <div className="flex justify-start sm:hidden mb-4 flex-shrink-0">
@@ -32,14 +32,10 @@ const Sidebar = ({ isOpen = true, setIsOpen = () => {} }) => {
           <SidebarButton
             onClick={() => navigate("/dashboard")}
             icon={
-              <img
-                src="/dashboard.png"
-                alt="Dashboard"
-                className="w-10 h-5 "
-              />
+              <img src="/dashboard.png" alt="Dashboard" className="w-10 h-5 " />
             }
           />
-          
+
           <SidebarButton icon={<HelpOutlineIcon />} />
           <SidebarButton icon={<HistoryIcon />} />
         </div>

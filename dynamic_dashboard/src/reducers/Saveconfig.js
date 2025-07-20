@@ -3,10 +3,13 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 // Thunk to call the API
 export const saveConfig = createAsyncThunk(
   "config/saveConfig",
-  async ({ payload ,chart_type,thread_id}, { rejectWithValue }) => {
+  async (
+    { payload, chart_type, thread_id, dashboardName },
+    { rejectWithValue }
+  ) => {
     try {
       const response = await fetch(
-        "https://e1f123eca7fe.ngrok-free.app/save-config",
+        "https://2c36bcde0c40.ngrok-free.app/save-config",
         {
           method: "POST",
           headers: {
@@ -16,6 +19,7 @@ export const saveConfig = createAsyncThunk(
             payload: payload,
             chartType: chart_type,
             threadId: thread_id,
+            dashboardName: dashboardName,
           }),
         }
       );
