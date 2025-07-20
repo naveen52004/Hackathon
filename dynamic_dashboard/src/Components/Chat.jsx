@@ -14,6 +14,10 @@ import {
   MessageSquare,
   RotateCcw,
   Sparkles,
+  Menu,
+  Plus,
+  PanelLeft,
+  PanelLeftOpen,
 } from "lucide-react";
 import { flushSync } from "react-dom";
 import { fetchDashboardData } from "../reducers/dashboardfetch";
@@ -34,11 +38,91 @@ const Chat = () => {
   const [threadId, setThreadId] = useState("");
   const [isNewThread, setIsNewThread] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
+  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [fetchedConversations, setFetchedConversations] = useState([]);
+  const [threadMessagesData, setThreadMessagesData] = useState({});
+  const [activeConversation, setActiveConversation] = useState(null); // Changed to null initially
+
+  useEffect(() => {
+    const fetchConversationsFromAPI = async () => {
+      try {
+        const response = await fetch(
+          "https://cfa3f66c176c.ngrok-free.app/get-all-dashboard-conv-config "
+        );
+        const result = await response.json();
+
+        if (result.success) {
+          // Store the raw thread data for later use
+          setThreadMessagesData(result.data);
+
+          // Format conversation list for sidebar
+          const formatted = Object.entries(result.data)
+            .map(([threadId, messages]) => {
+              const latestMessage = messages[0]; // assuming messages are sorted in backend
+              return {
+                threadId,
+                title: latestMessage?.userMessage || "Untitled Conversation",
+                timestamp: latestMessage?.createdTime,
+              };
+            })
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) // Ensure frontend order
+            .map((item, index) => ({
+              ...item,
+              id: index + 1,
+              timestamp: new Date(item.timestamp).toLocaleString(),
+              active: false, // No conversation should be active initially
+            }));
+
+          // Update state
+          setFetchedConversations(formatted);
+
+          // Create a new chat as default instead of loading first conversation
+          const newChatId = Math.max(0, ...formatted.map((c) => c.id)) + 1;
+          const newChat = {
+            id: newChatId,
+            title: "New Chat",
+            lastMessage: "",
+            timestamp: "now",
+            active: true,
+          };
+
+          // Add new chat to the beginning and set it as active
+          setFetchedConversations((prev) => [newChat, ...formatted]);
+          setActiveConversation(newChatId);
+
+          // Ensure we're in new thread mode
+          setIsNewThread(true);
+          setThreadId("");
+        }
+      } catch (error) {
+        console.error("Error fetching conversations:", error);
+
+        // If API fails, still create a new chat
+        const newChat = {
+          id: 1,
+          title: "New Chat",
+          lastMessage: "",
+          timestamp: "now",
+          active: true,
+        };
+        setFetchedConversations([newChat]);
+        setActiveConversation(1);
+      }
+    };
+
+    fetchConversationsFromAPI();
+  }, []);
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!isSidebarOpen);
+  };
+
   const dashboarddata = useSelector((state) => state.dashboardData);
   // Refs
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   const [chartType, setChartType] = useState("");
+
   // Memoized values
   const canPreview = useMemo(() => Boolean(finalPayload), [finalPayload]);
   const canSend = useMemo(
@@ -57,7 +141,7 @@ const Chat = () => {
 
   // Initialize chat
   useEffect(() => {
-    if (!hasInitialized) {
+    if (!hasInitialized && activeConversation !== null) {
       const timer = setTimeout(() => {
         const initialMessage = {
           id: Date.now(),
@@ -74,7 +158,7 @@ const Chat = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [hasInitialized]);
+  }, [hasInitialized, activeConversation]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -85,65 +169,13 @@ const Chat = () => {
     }
   }, [inputMessage]);
 
-  //   // Dashboard data fetching
-  //   const fetchDashboardData = useCallback(async (payload) => {
-  //     try {
-  //       setPreviewLoading(true);
-  //       const today = new Date();
-  //       const startOfDay = new Date(
-  //         today.getFullYear(),
-  //         today.getMonth(),
-  //         today.getDate()
-  //       );
-  //       const endOfDay = new Date(
-  //         today.getFullYear(),
-  //         today.getMonth(),
-  //         today.getDate(),
-  //         23,
-  //         59,
-  //         59,
-  //         999
-  //       );
-
-  //       const enhancedPayload = {
-  //         ...payload,
-  //         filter: {
-  //           startDate: startOfDay.getTime(),
-  //           endDate: endOfDay.getTime(),
-  //           notFetchEmpData: false,
-  //         },
-  //       };
-
-  //       const res = await fetch(
-  //         "https://democrm.kapturecrm.com/ms/dashboard/performance-dashboard",
-  //         {
-  //           method: "POST",
-  //           headers: {
-  //             "Content-Type": "application/json",
-  //             Authorization: "Basic ZGVtb2NybTpEZW1vY3JtJDMyMQ==",
-  //           },
-  //           body: JSON.stringify(enhancedPayload),
-  //           credentials: "include",
-  //         }
-  //       );
-
-  //       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  //       const data = await res.json();
-  //       setDashboardResult(data);
-  //     } catch (err) {
-  //       console.error("Dashboard fetch error:", err);
-  //       setDashboardResult({ error: err.message });
-  //     } finally {
-  //       setPreviewLoading(false);
-  //     }
-  //   }, []);
-
   useEffect(() => {
     if (finalPayload) {
       dispatch(fetchDashboardData(finalPayload));
       dispatch(setConfigData(finalPayload));
     }
   }, [finalPayload, dispatch]);
+
   const dynamic_payload = useSelector((state) => state.payload.data);
 
   // Bot response fetching with streaming
@@ -157,7 +189,7 @@ const Chat = () => {
         };
 
         const response = await fetch(
-          "https://f5bec5671aab.ngrok-free.app/kapture/dashboard/payload",
+          "https://cac1bd2ba5b5.ngrok-free.app/kapture/dashboard/payload",
           {
             method: "POST",
             headers: {
@@ -323,36 +355,255 @@ const Chat = () => {
     setShowPreview(false);
   }, []);
 
+  const handleNewChat = () => {
+    const newId = Math.max(...fetchedConversations.map((c) => c.id)) + 1;
+    const newConversation = {
+      id: newId,
+      title: "New Chat",
+      lastMessage: "",
+      timestamp: "now",
+      active: true,
+    };
+
+    // Update conversations
+    setFetchedConversations((prev) => [
+      newConversation,
+      ...prev.map((c) => ({ ...c, active: false })),
+    ]);
+    setActiveConversation(newId);
+    resetThread();
+  };
+
+  const handleSelectConversation = useCallback(
+    (conversationId) => {
+      console.log("Selecting conversation:", conversationId);
+
+      // First, update the active conversation state
+      setActiveConversation(conversationId);
+
+      // Update sidebar UI - ensure only selected conversation is active
+      setFetchedConversations((prev) =>
+        prev.map((c) => ({
+          ...c,
+          active: c.id === conversationId,
+        }))
+      );
+
+      const selected = fetchedConversations.find(
+        (c) => c.id === conversationId
+      );
+      if (!selected) {
+        console.log("Conversation not found:", conversationId);
+        return;
+      }
+
+      // If it's a "New Chat" (doesn't have threadId), just reset
+      if (!selected.threadId) {
+        resetThread();
+        return;
+      }
+
+      // Set threadId and prepare for message loading
+      setThreadId(selected.threadId);
+      setIsNewThread(false);
+      setHasInitialized(true); // Mark as initialized to prevent initial message
+
+      // Get the thread messages from stored data
+      const threadMessages = threadMessagesData[selected.threadId];
+      console.log(
+        "Thread messages for",
+        selected.threadId,
+        ":",
+        threadMessages
+      );
+
+      if (threadMessages && threadMessages.length > 0) {
+        // Sort messages by creation time to maintain conversation order
+        const sortedMessages = [...threadMessages].sort(
+          (a, b) => new Date(a.createdTime) - new Date(b.createdTime)
+        );
+
+        const formattedMessages = [];
+
+        // Process each message from the API
+        sortedMessages.forEach((msg, index) => {
+          // Add user message if it exists
+          if (msg.userMessage && msg.userMessage.trim()) {
+            formattedMessages.push({
+              id: `${msg.id || index}-user`,
+              text: msg.userMessage.trim(),
+              sender: "user",
+              timestamp: new Date(msg.createdTime).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            });
+          }
+
+          // Add bot response if it exists
+          if (msg.limResponse && msg.limResponse.trim()) {
+            formattedMessages.push({
+              id: `${msg.id || index}-bot`,
+              text: msg.limResponse.trim(),
+              sender: "bot",
+              timestamp: new Date(msg.createdTime).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            });
+          }
+        });
+
+        console.log("Formatted messages:", formattedMessages);
+        setMessages(formattedMessages);
+      } else {
+        // If no messages, show empty conversation
+        console.log("No messages found for thread");
+        setMessages([]);
+      }
+    },
+    [fetchedConversations, threadMessagesData, resetThread]
+  );
+
   return (
-    <div className="h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white flex">
+    <div className="h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white flex relative overflow-hidden">
+      {/* Sidebar Overlay - only on mobile */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
+          onClick={toggleSidebar}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`${
+          isSidebarOpen ? "w-80" : "w-0"
+        } transition-all duration-300 ease-in-out overflow-hidden bg-slate-800/95 backdrop-blur-sm border-r border-slate-700/50 flex flex-col relative z-50`}
+      >
+        {/* Sidebar Header */}
+        <div className="p-4 border-b border-slate-700/50 flex items-center justify-between min-w-80">
+          <h2 className="text-lg font-semibold text-white">Conversations</h2>
+          <button
+            onClick={toggleSidebar}
+            className="p-1.5 hover:bg-slate-700 rounded-md md:hidden transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* New Chat Button */}
+        <div className="p-4 min-w-80">
+          <button
+            onClick={handleNewChat}
+            className="w-full flex items-center justify-center gap-2 p-3 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 rounded-lg transition-all duration-200 font-medium"
+          >
+            <Plus size={18} />
+            New Chat
+          </button>
+        </div>
+
+        {/* Conversations List */}
+        <div className="flex-1 overflow-y-auto min-w-80">
+          <div className="p-2">
+            {fetchedConversations.map((conv) => (
+              <div
+                key={conv.id}
+                onClick={() => handleSelectConversation(conv.id)}
+                className={`p-3 rounded-lg cursor-pointer transition-all duration-200 mb-2 group ${
+                  conv.active
+                    ? "bg-emerald-600/20 border border-emerald-500/30"
+                    : "hover:bg-slate-700/50"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`p-1.5 rounded-md ${
+                      conv.active
+                        ? "bg-emerald-500"
+                        : "bg-slate-600 group-hover:bg-slate-500"
+                    } transition-colors`}
+                  >
+                    <MessageSquare size={14} className="text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3
+                      className={`font-medium truncate ${
+                        conv.active ? "text-emerald-100" : "text-white"
+                      }`}
+                    >
+                      {conv.title}
+                    </h3>
+                    {conv.lastMessage && (
+                      <p className="text-xs text-slate-400 mt-1 truncate">
+                        {conv.lastMessage}
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-500 mt-1">
+                      {conv.timestamp}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Main Chat Section */}
       <div
-        className={`flex flex-col transition-all duration-300 ${
+        className={`flex flex-col flex-1 transition-all duration-300 ${
           showPreview ? "w-1/2" : "w-full"
         }`}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/50">
           <div className="flex items-center space-x-3">
+            {/* Prominent Sidebar Toggle Button */}
+            <button
+              onClick={toggleSidebar}
+              className="p-2 hover:bg-slate-700 rounded-lg transition-all duration-200 text-slate-400 hover:text-white group border border-slate-600 hover:border-emerald-500/50"
+              title={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+            >
+              {isSidebarOpen ? (
+                <PanelLeftOpen
+                  size={20}
+                  className="group-hover:text-emerald-400 transition-colors"
+                />
+              ) : (
+                <PanelLeft
+                  size={20}
+                  className="group-hover:text-emerald-400 transition-colors"
+                />
+              )}
+            </button>
             <div className="p-2 bg-gradient-to-br from-emerald-500 to-blue-500 rounded-lg">
               <Sparkles size={20} />
             </div>
             <div>
               <h1 className="font-semibold text-lg">AI Assistant</h1>
-              <p className="text-xs text-slate-400">Ready to help you</p>
+              <p className="text-xs text-slate-400">
+                {fetchedConversations.find((c) => c.active)?.title ||
+                  "Ready to help you"}
+              </p>
             </div>
           </div>
-          <button
-            onClick={resetThread}
-            className="p-2 hover:bg-slate-700 rounded-lg transition-colors duration-200 text-slate-400 hover:text-white"
-            title="Reset conversation"
-          >
-            <RotateCcw size={18} />
-          </button>
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {messages.length === 0 && hasInitialized && (
+            <div className="flex justify-center items-center h-full">
+              <div className="text-center text-slate-400">
+                <MessageSquare size={48} className="mx-auto mb-4 opacity-50" />
+                <p>No messages in this conversation yet.</p>
+                <p className="text-sm mt-2">
+                  Start by sending a message below.
+                </p>
+              </div>
+            </div>
+          )}
+
           {messages.map((message) => (
             <div
               key={message.id}
@@ -430,7 +681,10 @@ const Chat = () => {
             <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
               {canPreview && (
                 <button
-                  onClick={handlePreview}
+                  onClick={() => {
+                    handlePreview(); // Call the function
+                    setSidebarOpen(false); // Close sidebar
+                  }} // Close sidebar
                   className={`p-2 rounded-xl transition-colors duration-200 ${
                     showPreview
                       ? "bg-blue-600 text-white"
@@ -475,7 +729,9 @@ const Chat = () => {
                 Save Dashboard
               </button>
               <button
-                onClick={() => setShowPreview(false)}
+                onClick={() => {
+                  setShowPreview(false);
+                }}
                 className="p-1 hover:bg-slate-200 rounded-md"
               >
                 <X size={20} className="text-slate-600" />
