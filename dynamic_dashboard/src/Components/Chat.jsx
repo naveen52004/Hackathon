@@ -46,13 +46,42 @@ const Chat = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [fetchedConversations, setFetchedConversations] = useState([]);
   const [threadMessagesData, setThreadMessagesData] = useState({});
-  const [activeConversation, setActiveConversation] = useState(null); // Changed to null initially
+  const [activeConversation, setActiveConversation] = useState(null);
+  const [conversationsLoaded, setConversationsLoaded] = useState(false); // New flag
+  const [dashboardDataFetched, setDashboardDataFetched] = useState(false); // New flag
 
+  // Refs
+  const messagesEndRef = useRef(null);
+  const textareaRef = useRef(null);
+  const [chartType, setChartType] = useState("");
+
+  // Redux selectors
+  const dashboarddata = useSelector((state) => state.dashboardData);
+  const dynamic_payload = useSelector((state) => state.payload.data);
+
+  // FIX 1: Prevent duplicate dashboard API calls with proper dependency tracking
   useEffect(() => {
+    if (finalPayload && !dashboardDataFetched) {
+      setPreviewLoading(true);
+      setDashboardDataFetched(true);
+      dispatch(fetchDashboardData(finalPayload));
+      dispatch(setConfigData(finalPayload));
+    }
+  }, [finalPayload, dispatch, dashboardDataFetched]);
+
+  // FIX 2: Reset dashboard fetch flag when finalPayload changes
+  useEffect(() => {
+    setDashboardDataFetched(false);
+  }, [finalPayload]);
+
+  // FIX 3: Only fetch conversations once on mount
+  useEffect(() => {
+    if (conversationsLoaded) return; // Prevent duplicate calls
+
     const fetchConversationsFromAPI = async () => {
       try {
         const response = await fetch(
-          "https://2c36bcde0c40.ngrok-free.app/get-all-dashboard-conv-config "
+          "https://2c36bcde0c40.ngrok-free.app/get-all-dashboard-conv-config"
         );
         const result = await response.json();
 
@@ -70,18 +99,18 @@ const Chat = () => {
                 timestamp: latestMessage?.createdTime,
               };
             })
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) // Ensure frontend order
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
             .map((item, index) => ({
               ...item,
               id: index + 1,
               timestamp: new Date(item.timestamp).toLocaleString(),
-              active: false, // No conversation should be active initially
+              active: false,
             }));
 
           // Update state
           setFetchedConversations(formatted);
 
-          // Create a new chat as default instead of loading first conversation
+          // Create a new chat as default
           const newChatId = Math.max(0, ...formatted.map((c) => c.id)) + 1;
           const newChat = {
             id: newChatId,
@@ -91,11 +120,8 @@ const Chat = () => {
             active: true,
           };
 
-          // Add new chat to the beginning and set it as active
           setFetchedConversations((prev) => [newChat, ...formatted]);
           setActiveConversation(newChatId);
-
-          // Ensure we're in new thread mode
           setIsNewThread(true);
           setThreadId("");
         }
@@ -112,22 +138,24 @@ const Chat = () => {
         };
         setFetchedConversations([newChat]);
         setActiveConversation(1);
+      } finally {
+        setConversationsLoaded(true); // Mark as loaded regardless of success/failure
       }
     };
 
     fetchConversationsFromAPI();
-  }, []);
+  }, [conversationsLoaded]); // Only depend on the loaded flag
 
   const toggleSidebar = () => {
     setSidebarOpen(!isSidebarOpen);
   };
 
-  const dashboarddata = useSelector((state) => state.dashboardData);
-
-  // Refs
-  const messagesEndRef = useRef(null);
-  const textareaRef = useRef(null);
-  const [chartType, setChartType] = useState("");
+  // FIX 4: Better dashboard data loading state management
+  useEffect(() => {
+    if (dashboarddata?.data?.agentIdtoFieldToFieldValueMap) {
+      setPreviewLoading(false);
+    }
+  }, [dashboarddata]);
 
   // Memoized values
   const canPreview = useMemo(() => Boolean(finalPayload), [finalPayload]);
@@ -145,7 +173,7 @@ const Chat = () => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Initialize chat
+  // FIX 5: Better initialization logic to prevent duplicate initial messages
   useEffect(() => {
     if (!hasInitialized && activeConversation !== null) {
       const timer = setTimeout(() => {
@@ -174,15 +202,6 @@ const Chat = () => {
       textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
     }
   }, [inputMessage]);
-
-  useEffect(() => {
-    if (finalPayload) {
-      dispatch(fetchDashboardData(finalPayload));
-      dispatch(setConfigData(finalPayload));
-    }
-  }, [finalPayload, dispatch]);
-
-  const dynamic_payload = useSelector((state) => state.payload.data);
 
   // Bot response fetching with streaming
   const fetchBotResponse = useCallback(
@@ -264,6 +283,7 @@ const Chat = () => {
                   });
                 }
               }
+              
               let payloadData = "";
               if (data.type === "payload") {
                 payloadData = data.content;
@@ -287,7 +307,6 @@ const Chat = () => {
         console.error("Bot response error:", error);
         setIsTyping(false);
 
-        // Add error message
         const errorMessage = {
           id: Date.now(),
           text: "Sorry, I encountered an error. Please try again.",
@@ -340,7 +359,6 @@ const Chat = () => {
     setShowPreview((prev) => !prev);
   };
 
-  // Modified save handler to show modal
   const handleSaveConfig = () => {
     if (!finalPayload) return;
     setShowSaveModal(true);
@@ -357,13 +375,13 @@ const Chat = () => {
     try {
       // Include the dashboard name in the save config
       await dispatch(
-        saveConfig({
-          payload: JSON.stringify(finalPayload),
-          chart_type: chartType,
-          thread_id: threadId,
+      saveConfig({
+        payload: JSON.stringify(finalPayload),
+        chart_type: chartType,
+        thread_id: threadId,
           dashboardName: dashboardName.trim(), // Add the dashboard name
-        })
-      );
+      })
+    );
 
       // Close modal and reset form
       setShowSaveModal(false);
@@ -387,6 +405,7 @@ const Chat = () => {
     setFinalPayload(null);
     setDashboardResult(null);
     setShowPreview(false);
+    setDashboardDataFetched(false); // Reset the flag
   }, []);
 
   const handleNewChat = () => {
@@ -399,7 +418,6 @@ const Chat = () => {
       active: true,
     };
 
-    // Update conversations
     setFetchedConversations((prev) => [
       newConversation,
       ...prev.map((c) => ({ ...c, active: false })),
@@ -412,89 +430,77 @@ const Chat = () => {
     (conversationId) => {
       console.log("Selecting conversation:", conversationId);
 
-      // First, update the active conversation state
       setActiveConversation(conversationId);
-
-      // Update sidebar UI - ensure only selected conversation is active
       setFetchedConversations((prev) =>
-        prev.map((c) => ({
-          ...c,
-          active: c.id === conversationId,
-        }))
+        prev.map((c) => ({ ...c, active: c.id === conversationId }))
       );
 
-      const selected = fetchedConversations.find(
-        (c) => c.id === conversationId
-      );
-      if (!selected) {
-        console.log("Conversation not found:", conversationId);
-        return;
-      }
-
-      // If it's a "New Chat" (doesn't have threadId), just reset
-      if (!selected.threadId) {
+      const selected = fetchedConversations.find((c) => c.id === conversationId);
+      if (!selected || !selected.threadId) {
         resetThread();
         return;
       }
 
-      // Set threadId and prepare for message loading
-      setThreadId(selected.threadId);
-      setIsNewThread(false);
-      setHasInitialized(true); // Mark as initialized to prevent initial message
+      const threadId = selected.threadId;
+      const threadMessages = threadMessagesData[threadId] || [];
 
-      // Get the thread messages from stored data
-      const threadMessages = threadMessagesData[selected.threadId];
-      console.log(
-        "Thread messages for",
-        selected.threadId,
-        ":",
-        threadMessages
+      const sortedMessages = [...threadMessages].sort(
+        (a, b) => new Date(a.createdTime) - new Date(b.createdTime)
       );
 
-      if (threadMessages && threadMessages.length > 0) {
-        // Sort messages by creation time to maintain conversation order
-        const sortedMessages = [...threadMessages].sort(
-          (a, b) => new Date(a.createdTime) - new Date(b.createdTime)
-        );
+      const lastMessage = sortedMessages[sortedMessages.length - 1];
+      let parsedPayload = null;
 
-        const formattedMessages = [];
-
-        // Process each message from the API
-        sortedMessages.forEach((msg, index) => {
-          // Add user message if it exists
-          if (msg.userMessage && msg.userMessage.trim()) {
-            formattedMessages.push({
-              id: `${msg.id || index}-user`,
-              text: msg.userMessage.trim(),
-              sender: "user",
-              timestamp: new Date(msg.createdTime).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-            });
-          }
-
-          // Add bot response if it exists
-          if (msg.limResponse && msg.limResponse.trim()) {
-            formattedMessages.push({
-              id: `${msg.id || index}-bot`,
-              text: msg.limResponse.trim(),
-              sender: "bot",
-              timestamp: new Date(msg.createdTime).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-            });
-          }
-        });
-
-        console.log("Formatted messages:", formattedMessages);
-        setMessages(formattedMessages);
-      } else {
-        // If no messages, show empty conversation
-        console.log("No messages found for thread");
-        setMessages([]);
+      try {
+        if (lastMessage?.payload) {
+          parsedPayload = JSON.parse(lastMessage.payload);
+        }
+      } catch (err) {
+        console.error("Failed to parse payload from last message", err);
       }
+
+      if (parsedPayload) {
+        setFinalPayload(parsedPayload);
+        setChartType(lastMessage.chartType || "");
+        setShowPreview(true);
+        // Don't dispatch here immediately, let the useEffect handle it
+      } else {
+        setFinalPayload(null);
+        setChartType("");
+        setShowPreview(false);
+      }
+
+      const formattedMessages = sortedMessages.flatMap((msg, index) => {
+        const messages = [];
+        if (msg.userMessage?.trim()) {
+          messages.push({
+            id: `${msg.id || index}-user`,
+            text: msg.userMessage.trim(),
+            sender: "user",
+            timestamp: new Date(msg.createdTime).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          });
+        }
+        if (msg.limResponse?.trim()) {
+          messages.push({
+            id: `${msg.id || index}-bot`,
+            text: msg.limResponse.trim(),
+            sender: "bot",
+            timestamp: new Date(msg.createdTime).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          });
+        }
+        return messages;
+      });
+
+      setMessages(formattedMessages);
+      setThreadId(threadId);
+      setIsNewThread(false);
+      setHasInitialized(true);
     },
     [fetchedConversations, threadMessagesData, resetThread]
   );
@@ -722,9 +728,9 @@ const Chat = () => {
               {canPreview && (
                 <button
                   onClick={() => {
-                    handlePreview(); // Call the function
-                    setSidebarOpen(false); // Close sidebar
-                  }} // Close sidebar
+                    handlePreview();
+                    setSidebarOpen(false);
+                  }}
                   className={`p-2 rounded-xl transition-colors duration-200 ${
                     showPreview
                       ? "bg-blue-600 text-white"
@@ -780,41 +786,30 @@ const Chat = () => {
           </div>
 
           {/* Preview Content */}
-          <div className="flex-1 bg-gray-50 overflow-auto">
-            {previewLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Loading dashboard data...</p>
-                </div>
+          <div className="flex-1 overflow-y-auto bg-gray-50">
+          {previewLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading dashboard data...</p>
               </div>
-            ) : dashboarddata ? (
-              <div className="h-full w-full">
-                <DynamicAutoCharts
-                  apiResponse={dashboarddata}
-                  api_payload={dynamic_payload}
-                  chartType={chartType}
-                />
+            </div>
+          ) : dashboarddata?.data?.agentIdtoFieldToFieldValueMap ? (
+            <div className="h-full w-full">
+            <DynamicAutoCharts
+              apiResponse={dashboarddata}
+              api_payload={finalPayload}
+              chartType={chartType}
+            />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="text-4xl mb-4">📊</div>
+                <p className="text-gray-600">No data available for dashboard.</p>
               </div>
-            ) : finalPayload ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="text-4xl mb-4">📊</div>
-                  <p className="text-gray-600">
-                    Click preview to load dashboard data
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="text-4xl mb-4">💬</div>
-                  <p className="text-gray-600">
-                    Generate dashboard data from chat to see preview
-                  </p>
-                </div>
-              </div>
-            )}
+            </div>
+          )}
           </div>
         </div>
       )}
