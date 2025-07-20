@@ -16,6 +16,10 @@ const DynamicAutoChart = ({
 
   const fieldList = api_payload.keyToFieldList || {};
 
+  if (chartType === undefined || chartType === "") {
+    chartType = "table";
+  }
+
   if (chartType === "table") {
     return <GenericTableComponent apiResponse={apiResponse} api_payload={api_payload} />;
   }
