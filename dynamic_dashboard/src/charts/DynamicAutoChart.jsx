@@ -7,7 +7,7 @@ const DynamicAutoChart = ({
   apiResponse,
   api_payload,
   chartType, // pie, bar, line
-  title = "Dynamic Auto JSON Chart",
+  title = "",
   aggregateKey = "-20", // ✅ Default key for aggregate data
 }) => {
   const totalKey = "-20"; // Default key for total data

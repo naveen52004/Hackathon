@@ -38,6 +38,11 @@ const Chat = () => {
   const [threadId, setThreadId] = useState("");
   const [isNewThread, setIsNewThread] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
+
+  // New state for save modal
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [dashboardName, setDashboardName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [fetchedConversations, setFetchedConversations] = useState([]);
   const [threadMessagesData, setThreadMessagesData] = useState({});
@@ -47,7 +52,7 @@ const Chat = () => {
     const fetchConversationsFromAPI = async () => {
       try {
         const response = await fetch(
-          "https://cfa3f66c176c.ngrok-free.app/get-all-dashboard-conv-config "
+          "https://2c36bcde0c40.ngrok-free.app/get-all-dashboard-conv-config "
         );
         const result = await response.json();
 
@@ -118,6 +123,7 @@ const Chat = () => {
   };
 
   const dashboarddata = useSelector((state) => state.dashboardData);
+
   // Refs
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -334,15 +340,43 @@ const Chat = () => {
     setShowPreview((prev) => !prev);
   };
 
+  // Modified save handler to show modal
   const handleSaveConfig = () => {
     if (!finalPayload) return;
-    dispatch(
-      saveConfig({
-        payload: JSON.stringify(finalPayload),
-        chart_type: chartType,
-        thread_id: threadId,
-      })
-    );
+    setShowSaveModal(true);
+  };
+
+  // New function to handle the actual save with dashboard name
+  const handleConfirmSave = async () => {
+    if (!dashboardName.trim()) {
+      alert("Please enter a dashboard name");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Include the dashboard name in the save config
+      await dispatch(
+        saveConfig({
+          payload: JSON.stringify(finalPayload),
+          chart_type: chartType,
+          thread_id: threadId,
+          dashboardName: dashboardName.trim(), // Add the dashboard name
+        })
+      );
+
+      // Close modal and reset form
+      setShowSaveModal(false);
+      setDashboardName("");
+
+      // Optional: Show success message
+      alert("Dashboard saved successfully!");
+    } catch (error) {
+      console.error("Error saving dashboard:", error);
+      alert("Error saving dashboard. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const resetThread = useCallback(() => {
@@ -724,7 +758,7 @@ const Chat = () => {
               <button
                 onClick={handleSaveConfig}
                 disabled={!finalPayload}
-                className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 text-sm"
+                className="px-3 py-3 bg-[#00407a] text-white rounded-md hover:bg-blue-600 disabled:opacity-50 text-sm"
               >
                 Save Dashboard
               </button>
@@ -749,7 +783,7 @@ const Chat = () => {
                 </div>
               </div>
             ) : dashboarddata ? (
-              <div className="h-full">
+              <div className="h-full w-full">
                 <DynamicAutoCharts
                   apiResponse={dashboarddata}
                   api_payload={dynamic_payload}
@@ -775,6 +809,162 @@ const Chat = () => {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Save Dashboard Modal */}
+      {showSaveModal && (
+        <div className="fixed inset-0 bg-transparent backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100"
+            style={{
+              background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+              boxShadow:
+                "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05)",
+            }}
+          >
+            {/* Header with gradient */}
+            <div className="relative p-6 pb-4">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500 rounded-t-2xl opacity-10"></div>
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-xl shadow-lg">
+                    <svg
+                      className="w-5 h-5 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+                      Save Dashboard
+                    </h3>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Give your dashboard a memorable name
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowSaveModal(false)}
+                  className="p-2 hover:bg-slate-100 rounded-xl transition-all duration-200 hover:rotate-90"
+                  disabled={isSaving}
+                >
+                  <X
+                    size={20}
+                    className="text-slate-400 hover:text-slate-600"
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* Form Content */}
+            <div className="px-6 pb-6">
+              <div className="mb-8">
+                <label
+                  htmlFor="dashboardName"
+                  className="block text-sm font-semibold text-slate-700 mb-3"
+                >
+                  Dashboard Name *
+                </label>
+                <div className="relative">
+                  <input
+                    id="dashboardName"
+                    type="text"
+                    value={dashboardName}
+                    onChange={(e) => setDashboardName(e.target.value)}
+                    placeholder="e.g., Sales Performance Q4, Marketing Analytics..."
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-slate-700 placeholder-slate-400 transition-all duration-200 bg-slate-50/50 hover:bg-white"
+                    disabled={isSaving}
+                    autoFocus
+                    maxLength={50}
+                  />
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <span
+                      className={`text-xs ${
+                        dashboardName.length > 40
+                          ? "text-orange-500"
+                          : "text-slate-400"
+                      }`}
+                    >
+                      {dashboardName.length}/50
+                    </span>
+                  </div>
+                </div>
+                {dashboardName.trim() && dashboardName.length < 3 && (
+                  <p className="text-xs text-orange-500 mt-2 flex items-center">
+                    <svg
+                      className="w-3 h-3 mr-1"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Name should be at least 3 characters long
+                  </p>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowSaveModal(false)}
+                  className="flex-1 px-4 py-3 text-slate-600 hover:bg-slate-100 rounded-xl font-medium transition-all duration-200 hover:shadow-sm"
+                  disabled={isSaving}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmSave}
+                  disabled={
+                    !dashboardName.trim() ||
+                    dashboardName.length < 3 ||
+                    isSaving
+                  }
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-emerald-500 text-white rounded-xl hover:from-blue-600 hover:to-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl disabled:shadow-none"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      <span>Save Dashboard</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Decorative Elements */}
+            <div className="absolute -top-1 -right-1 w-20 h-20 bg-gradient-to-br from-blue-400/20 to-emerald-400/20 rounded-full blur-xl"></div>
+            <div className="absolute -bottom-1 -left-1 w-16 h-16 bg-gradient-to-tr from-purple-400/20 to-pink-400/20 rounded-full blur-xl"></div>
           </div>
         </div>
       )}

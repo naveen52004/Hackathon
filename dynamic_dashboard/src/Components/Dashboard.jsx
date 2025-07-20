@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
+import { React, useEffect, useState } from "react";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import MenuIcon from "@mui/icons-material/Menu";
 import CloseIcon from "@mui/icons-material/Close";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { fetchConfigData } from "../reducers/Getconfig"; // Updated import
-import { fetchDashboardData } from "../reducers/dashboardfetch"; // Updated import
+import { fetchConfigData } from "../reducers/Getconfig";
+import { fetchDashboardData } from "../reducers/dashboardfetch";
 import DynamicAutoCharts from "../charts/DynamicAutoChart";
 
 const Dashboard = () => {
@@ -16,7 +16,14 @@ const Dashboard = () => {
   const [currentApiPayload, setCurrentApiPayload] = useState(null);
   const [currentChartType, setCurrentChartType] = useState(null);
 
-  // Updated selectors to match new store structure
+  // Draggable chat button state
+  const [chatButtonPosition, setChatButtonPosition] = useState({
+    x: window.innerWidth - 100,
+    y: window.innerHeight - 100,
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
   const dashboardConfigState = useSelector((state) => state.dashboardConfig);
   const dashboardDataState = useSelector((state) => state.dashboardData);
 
@@ -24,19 +31,105 @@ const Dashboard = () => {
     dispatch(fetchConfigData());
   }, [dispatch]);
 
-  // Extract objects from the API response
+  // Handle window resize to keep button in bounds
+  useEffect(() => {
+    const handleResize = () => {
+      setChatButtonPosition((prev) => ({
+        x: Math.min(prev.x, window.innerWidth - 80),
+        y: Math.min(prev.y, window.innerHeight - 80),
+      }));
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Mouse event handlers for dragging
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    const rect = e.target.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+    e.preventDefault();
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+
+    const newX = e.clientX - dragOffset.x;
+    const newY = e.clientY - dragOffset.y;
+
+    // Keep button within screen bounds
+    const boundedX = Math.max(0, Math.min(newX, window.innerWidth - 80));
+    const boundedY = Math.max(0, Math.min(newY, window.innerHeight - 80));
+
+    setChatButtonPosition({ x: boundedX, y: boundedY });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Touch event handlers for mobile dragging
+  const handleTouchStart = (e) => {
+    setIsDragging(true);
+    const touch = e.touches[0];
+    const rect = e.target.getBoundingClientRect();
+    setDragOffset({
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+    });
+    e.preventDefault();
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging) return;
+
+    const touch = e.touches[0];
+    const newX = touch.clientX - dragOffset.x;
+    const newY = touch.clientY - dragOffset.y;
+
+    // Keep button within screen bounds
+    const boundedX = Math.max(0, Math.min(newX, window.innerWidth - 80));
+    const boundedY = Math.max(0, Math.min(newY, window.innerHeight - 80));
+
+    setChatButtonPosition({ x: boundedX, y: boundedY });
+    e.preventDefault();
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
+  // Add global mouse move and up listeners
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.addEventListener("touchmove", handleTouchMove);
+      document.addEventListener("touchend", handleTouchEnd);
+
+      return () => {
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+        document.removeEventListener("touchmove", handleTouchMove);
+        document.removeEventListener("touchend", handleTouchEnd);
+      };
+    }
+  }, [isDragging, dragOffset]);
+
   const getDataObjects = () => {
     if (!dashboardConfigState.data?.data) return [];
 
     const responseData = dashboardConfigState.data.data;
 
-    // Extract thread IDs and their configurations
     return Object.keys(responseData)
       .map((threadId, index) => {
-        // ← Add index as second parameter
         const configArray = responseData[threadId];
         if (Array.isArray(configArray) && configArray.length > 0) {
-          const config = configArray[0]; // Get first configuration
+          const config = configArray[0];
           let parsedPayload = {};
 
           try {
@@ -44,61 +137,44 @@ const Dashboard = () => {
           } catch (error) {
             console.error("Error parsing payload:", error);
           }
-
+          const label = config.dashboardName || `D${index + 1}`;
           return {
             key: threadId,
-            label: `D${index + 1}`, // Now index is properly defined
-            threadId: threadId,
+            label: label,
+            threadId,
             chartType: config.chartType,
             keyToFieldList: parsedPayload.keyToFieldList,
             apiPayload: { keyToFieldList: parsedPayload.keyToFieldList },
-            config: config,
+            config,
           };
         }
         return null;
       })
-      .filter(Boolean); // Remove null entries
+      .filter(Boolean);
   };
 
   const dataObjects = getDataObjects();
 
-  // Handle sidebar item click
   const handleItemClick = async (item, index) => {
     setSelectedItem(index);
-
-    try {
-      // Set current chart type and API payload
-      setCurrentChartType(item.chartType);
-      setCurrentApiPayload(item.apiPayload);
-
-      // Dispatch API call with complete payload structure
-      dispatch(fetchDashboardData(item.apiPayload));
-
-      // Close sidebar on mobile after selection
-      if (window.innerWidth < 768) {
-        setIsSidebarOpen(false);
-      }
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    }
+    setCurrentChartType(item.chartType);
+    setCurrentApiPayload(item.apiPayload);
+    dispatch(fetchDashboardData(item.apiPayload));
+    if (window.innerWidth < 768) setIsSidebarOpen(false);
   };
 
-  // Set initial data when dashboard data loads
   useEffect(() => {
     if (
       dashboardConfigState.status === "succeeded" &&
       dashboardConfigState.data &&
-      selectedItem === null
+      selectedItem === null &&
+      dataObjects.length > 0
     ) {
-      if (dataObjects.length > 0) {
-        const firstItem = dataObjects[0];
-        setCurrentChartType(firstItem.chartType);
-        setCurrentApiPayload(firstItem.apiPayload);
-        setSelectedItem(0);
-
-        // Dispatch initial API call with complete payload
-        dispatch(fetchDashboardData(firstItem.apiPayload));
-      }
+      const firstItem = dataObjects[0];
+      setCurrentChartType(firstItem.chartType);
+      setCurrentApiPayload(firstItem.apiPayload);
+      setSelectedItem(0);
+      dispatch(fetchDashboardData(firstItem.apiPayload));
     }
   }, [
     dashboardConfigState.status,
@@ -109,17 +185,15 @@ const Dashboard = () => {
   ]);
 
   return (
-    <div className="relative min-h-screen flex">
-      {/* Sidebar */}
+    <div className="h-screen w-full flex overflow-hidden ]">
+      {/* Sidebar - Fixed position */}
       <div
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 lg:static lg:inset-0`}
+        className={`group fixed inset-y-0 left-0 z-40 bg-white shadow-lg transition-all duration-300 ease-in-out
+    ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+    lg:translate-x-0 lg:static lg:inset-0 flex flex-col w-20 hover:w-60`}
       >
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-800">
-            Dashboard Items
-          </h2>
+        {/* Top Bar with Close Button */}
+        <div className="flex items-center justify-end p-4 border-b flex-shrink-0">
           <button
             onClick={() => setIsSidebarOpen(false)}
             className="lg:hidden p-1 rounded-md hover:bg-gray-100"
@@ -128,50 +202,36 @@ const Dashboard = () => {
           </button>
         </div>
 
-        <div className="p-2">
+        {/* Sidebar Content */}
+        <div className="flex-1 overflow-y-auto p-2">
           {dashboardConfigState.status === "loading" && (
             <p className="text-gray-600 p-3">Loading items...</p>
           )}
-
           {dashboardConfigState.status === "failed" && (
             <p className="text-red-500 p-3">{dashboardConfigState.error}</p>
           )}
-
           {dashboardConfigState.status === "succeeded" &&
-            dataObjects.length > 0 && (
-              <div className="space-y-1">
-                {dataObjects.map((item, index) => (
-                  <button
-                    key={item.key || index}
-                    onClick={() => handleItemClick(item, index)}
-                    className={`w-full text-left px-3 py-2 rounded-md transition-colors duration-200 ${
-                      selectedItem === index
-                        ? "bg-[#db3700] text-white"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <div className="font-medium">{item.label}</div>
-                    {/* <div className="text-xs opacity-75 mt-1">
-                      Chart Type: {item.chartType}
-                    </div>
-                    {item.keyToFieldList && (
-                      <div className="text-xs opacity-75">
-                        Fields: {Object.keys(item.keyToFieldList).join(", ")}
-                      </div>
-                    )} */}
-                  </button>
-                ))}
-              </div>
-            )}
-
-          {dashboardConfigState.status === "succeeded" &&
-            dataObjects.length === 0 && (
-              <p className="text-gray-500 p-3">No items found in the data</p>
-            )}
+            dataObjects.map((item, index) => (
+              <button
+                key={item.key || index}
+                onClick={() => handleItemClick(item, index)}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors duration-200 whitespace-nowrap overflow-hidden
+            ${
+              selectedItem === index
+                ? "bg-[#db3700] text-white"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+              >
+                {/* Icon or bullet can go here if you have one */}
+                <div className="font-medium truncate group-hover:whitespace-normal">
+                  {item.label}
+                </div>
+              </button>
+            ))}
         </div>
       </div>
 
-      {/* Overlay for mobile */}
+      {/* Mobile overlay */}
       {isSidebarOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
@@ -179,10 +239,10 @@ const Dashboard = () => {
         />
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 lg:ml-0">
-        {/* Header with menu button */}
-        <div className="lg:hidden flex items-center p-4 bg-white shadow-sm">
+      {/* Main Content - Constrained to remaining space */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden lg:ml-0">
+        {/* Mobile Header */}
+        <div className="lg:hidden flex items-center p-4 bg-white shadow-sm flex-shrink-0">
           <button
             onClick={() => setIsSidebarOpen(true)}
             className="p-2 rounded-md hover:bg-gray-100"
@@ -194,86 +254,68 @@ const Dashboard = () => {
           </h1>
         </div>
 
-        {/* Dashboard Content */}
-        <div className="p-4">
-          {/* Floating Chat Button */}
+        {/* Content Area - No horizontal overflow */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Draggable Chat Button */}
           <button
-            onClick={() => navigate("/chat")}
-            className="fixed bottom-6 right-6 bg-[#db3700] hover:bg-[#c12e00] text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 z-50 group"
-            title="Open Chat"
+            onClick={() => !isDragging && navigate("/chat")}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+            className={`fixed bg-[#db3700] hover:bg-[#c12e00] text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 z-50 group ${
+              isDragging
+                ? "cursor-grabbing scale-110"
+                : "cursor-grab hover:scale-105"
+            }`}
+            style={{
+              left: `${chatButtonPosition.x}px`,
+              top: `${chatButtonPosition.y}px`,
+              userSelect: "none",
+              touchAction: "none",
+            }}
+            title=" Click to open Chat"
           >
-            <ChatBubbleOutlineIcon className="w-6 h-6" />
-            <span className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              Chat Support
+            <ChatBubbleOutlineIcon className="w-6 h-6 pointer-events-none" />
+            <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+              {isDragging ? "Release to place" : "Click for Chat"}
             </span>
           </button>
 
-          {/* Dynamic Charts */}
-          <div className="mt-6">
-            {dashboardConfigState.status === "loading" && (
-              <div className="flex items-center justify-center h-64">
-                <p className="text-gray-600">
-                  Loading dashboard configuration...
-                </p>
+          {/* Chart Section - Only this scrolls horizontally */}
+          <div className="flex-1 p-4 overflow-hidden">
+            {selectedItem !== null && dataObjects[selectedItem] && (
+              <div className="mb-10 flex justify-center">
+                <h3 className="text-4xl md:text-5xl font-extrabold text-center bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 text-transparent bg-clip-text drop-shadow-md tracking-wide font-poster">
+                  {dataObjects[selectedItem].label}
+                </h3>
               </div>
             )}
 
-            {dashboardConfigState.status === "failed" && (
-              <div className="flex items-center justify-center h-64">
-                <p className="text-red-500">{dashboardConfigState.error}</p>
-              </div>
-            )}
-
-            {dashboardDataState?.status === "loading" && (
-              <div className="flex items-center justify-center h-64">
-                <p className="text-gray-600">Loading dashboard data...</p>
-              </div>
-            )}
-
-            {dashboardDataState?.status === "failed" && (
-              <div className="flex items-center justify-center h-64">
-                <p className="text-red-500">{dashboardDataState.error}</p>
-              </div>
-            )}
-
-            {dashboardConfigState.status === "succeeded" &&
-              dashboardDataState?.status === "succeeded" &&
-              dashboardDataState.data &&
-              currentApiPayload &&
-              currentChartType && (
-                <div>
-                  {selectedItem !== null && dataObjects[selectedItem] && (
-                    <div className="mb-4">
-                      <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                        {dataObjects[selectedItem].label}
-                      </h3>
-                      <div className="flex gap-4 text-sm text-gray-600 mb-4">
-                        <span className="bg-blue-100 px-2 py-1 rounded">
-                          Chart: {dataObjects[selectedItem].chartType}
-                        </span>
-                        <span className="bg-green-100 px-2 py-1 rounded">
-                          Thread:{" "}
-                          {dataObjects[selectedItem].threadId.slice(0, 8)}...
-                        </span>
-                      </div>
+            {/* Chart Container - Horizontal scroll only for chart */}
+            <div className="flex-1 overflow-auto">
+              <div className="min-w-[1000px] h-full">
+                {dashboardDataState?.status === "loading" && (
+                  <div className="text-gray-500 text-center py-20 h-full flex items-center justify-center">
+                    Loading data...
+                  </div>
+                )}
+                {dashboardDataState?.status === "failed" && (
+                  <div className="text-red-500 text-center py-20 h-full flex items-center justify-center">
+                    {dashboardDataState.error}
+                  </div>
+                )}
+                {dashboardDataState?.status === "succeeded" &&
+                  currentApiPayload &&
+                  currentChartType && (
+                    <div className="h-full">
+                      <DynamicAutoCharts
+                        apiResponse={dashboardDataState}
+                        api_payload={currentApiPayload}
+                        chartType={currentChartType}
+                      />
                     </div>
                   )}
-                  <DynamicAutoCharts
-                    apiResponse={dashboardDataState}
-                    api_payload={currentApiPayload}
-                    chartType={currentChartType}
-                  />
-                </div>
-              )}
-
-            {dashboardConfigState.status === "succeeded" &&
-              dataObjects.length === 0 && (
-                <div className="flex items-center justify-center h-64">
-                  <p className="text-gray-500">
-                    No dashboard configurations found
-                  </p>
-                </div>
-              )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
