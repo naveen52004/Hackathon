@@ -4,7 +4,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 // Async thunk to fetch dashboard data
 export const fetchDashboardData = createAsyncThunk(
   "dashboardData/fetchData", // Changed from "dashboard/fetchData"
-  async (payload, { rejectWithValue }) => {
+  async ({ id, payload }, { rejectWithValue }) => {
     try {
       const today = new Date();
       const startOfDay = new Date(
@@ -23,7 +23,7 @@ export const fetchDashboardData = createAsyncThunk(
       );
 
       const enhancedPayload = {
-        ...payload,
+        keyToFieldList: payload,
         filter: {
           startDate: startOfDay.getTime(),
           endDate: endOfDay.getTime(),
@@ -46,7 +46,11 @@ export const fetchDashboardData = createAsyncThunk(
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      return data;
+      return {
+        id,
+        data,
+        payload,
+      };
     } catch (err) {
       return rejectWithValue(err.message);
     }
@@ -54,32 +58,36 @@ export const fetchDashboardData = createAsyncThunk(
 );
 
 const dashboardDataSlice = createSlice({
-  name: "dashboardData", // Changed from "dashboard"
+  name: "dashboardData",
   initialState: {
-    data: null,
-    status: "idle", // Changed from loading to status for consistency
-    error: null,
+    dataMap: {},
+    statusMap: {},
+    errorMap: {},
   },
   reducers: {
     resetDashboard: (state) => {
-      state.data = null;
-      state.error = null;
-      state.status = "idle";
+      state.dataMap = {};
+      state.statusMap = {};
+      state.errorMap = {};
     },
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchDashboardData.pending, (state) => {
-        state.status = "loading";
-        state.error = null;
+      .addCase(fetchDashboardData.pending, (state, action) => {
+        const id = action.meta.arg.id;
+        state.statusMap[id] = "loading";
+        state.errorMap[id] = null;
       })
       .addCase(fetchDashboardData.fulfilled, (state, action) => {
-        state.status = "succeeded";
-        state.data = action.payload;
+        const { id, data } = action.payload;
+        console.log("Data fetched for ID:", id, data); // <-- Add this
+        state.statusMap[id] = "succeeded";
+        state.dataMap[id] = data;
       })
       .addCase(fetchDashboardData.rejected, (state, action) => {
-        state.status = "failed";
-        state.error = action.payload;
+        const id = action.meta.arg.id;
+        state.statusMap[id] = "failed";
+        state.errorMap[id] = action.payload || "Unknown error";
       });
   },
 });

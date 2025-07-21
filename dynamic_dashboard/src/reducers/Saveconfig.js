@@ -9,7 +9,7 @@ export const saveConfig = createAsyncThunk(
   ) => {
     try {
       const response = await fetch(
-        "https://2c36bcde0c40.ngrok-free.app/save-config",
+        "https://3c085d57a043.ngrok-free.app/save-config",
         {
           method: "POST",
           headers: {
