@@ -24,6 +24,8 @@ import { fetchDashboardData } from "../reducers/dashboardfetch";
 import DynamicAutoCharts from "../charts/DynamicAutoChart";
 import { setConfigData } from "../reducers/payload";
 import { saveConfig } from "../reducers/Saveconfig";
+import { toast } from "react-toastify";
+import { firstapicall } from "../reducers/firstapicall";
 
 const Chat = () => {
   // State management
@@ -58,16 +60,45 @@ const Chat = () => {
   // Redux selectors
   const dashboarddata = useSelector((state) => state.dashboardData);
   const dynamic_payload = useSelector((state) => state.payload.data);
+  const configList = useSelector((state) => state.firstapicall.data);
+  const { dataMap, statusMap } = useSelector((state) => state.dashboardData);
 
   // FIX 1: Prevent duplicate dashboard API calls with proper dependency tracking
   useEffect(() => {
     if (finalPayload && !dashboardDataFetched) {
       setPreviewLoading(true);
       setDashboardDataFetched(true);
-      dispatch(fetchDashboardData(finalPayload));
+
+      // Dispatch setConfigData immediately
       dispatch(setConfigData(finalPayload));
+
+      // Delay dispatching firstapicall
+      const timeout = setTimeout(() => {
+        dispatch(firstapicall({ thread_id: threadId }));
+      }, 1000); // 1000ms = 1 second
+
+      // Cleanup
+      return () => clearTimeout(timeout);
     }
-  }, [finalPayload, dispatch, dashboardDataFetched]);
+  }, [finalPayload, dispatch, dashboardDataFetched, threadId]);
+
+  const dispatchedIdsRef = useRef(new Set());
+
+  useEffect(() => {
+    if (configList?.data && Array.isArray(configList.data)) {
+      configList.data.forEach((item) => {
+        try {
+          const parsedPayload = JSON.parse(item.payload);
+          const id = item.id;
+
+          dispatch(fetchDashboardData({ id, payload: parsedPayload }));
+          dispatchedIdsRef.current.add(id);
+        } catch (err) {
+          console.error("Error parsing payload for item:", item.id, err);
+        }
+      });
+    }
+  }, [configList, dispatch]);
 
   // FIX 2: Reset dashboard fetch flag when finalPayload changes
   useEffect(() => {
@@ -81,7 +112,7 @@ const Chat = () => {
     const fetchConversationsFromAPI = async () => {
       try {
         const response = await fetch(
-          "https://2c36bcde0c40.ngrok-free.app/get-all-dashboard-conv-config"
+          "https://3c085d57a043.ngrok-free.app/get-all-dashboard-conv-config"
         );
         const result = await response.json();
 
@@ -152,10 +183,14 @@ const Chat = () => {
 
   // FIX 4: Better dashboard data loading state management
   useEffect(() => {
-    if (dashboarddata?.data?.agentIdtoFieldToFieldValueMap) {
+    const hasData = Object.values(dashboarddata?.dataMap || {}).some(
+      (entry) => entry?.agentIdtoFieldToFieldValueMap
+    );
+
+    if (hasData) {
       setPreviewLoading(false);
     }
-  }, [dashboarddata]);
+  }, [dashboarddata.dataMap]);
 
   // Memoized values
   const canPreview = useMemo(() => Boolean(finalPayload), [finalPayload]);
@@ -214,7 +249,7 @@ const Chat = () => {
         };
 
         const response = await fetch(
-          "https://1719a856b571.ngrok-free.app/kapture/dashboard/payload",
+          "https://3c085d57a043.ngrok-free.app/kapture/dashboard/payload",
           {
             method: "POST",
             headers: {
@@ -283,7 +318,7 @@ const Chat = () => {
                   });
                 }
               }
-              
+
               let payloadData = "";
               if (data.type === "payload") {
                 payloadData = data.content;
@@ -375,23 +410,21 @@ const Chat = () => {
     try {
       // Include the dashboard name in the save config
       await dispatch(
-      saveConfig({
-        payload: JSON.stringify(finalPayload),
-        chart_type: chartType,
-        thread_id: threadId,
+        saveConfig({
+          payload: configList.data,
           dashboardName: dashboardName.trim(), // Add the dashboard name
-      })
-    );
+        })
+      );
 
       // Close modal and reset form
       setShowSaveModal(false);
       setDashboardName("");
 
       // Optional: Show success message
-      alert("Dashboard saved successfully!");
+      toast.success("Dashboard saved successfully!");
     } catch (error) {
       console.error("Error saving dashboard:", error);
-      alert("Error saving dashboard. Please try again.");
+      toast.error("Error saving dashboard. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -435,7 +468,9 @@ const Chat = () => {
         prev.map((c) => ({ ...c, active: c.id === conversationId }))
       );
 
-      const selected = fetchedConversations.find((c) => c.id === conversationId);
+      const selected = fetchedConversations.find(
+        (c) => c.id === conversationId
+      );
       if (!selected || !selected.threadId) {
         resetThread();
         return;
@@ -506,7 +541,7 @@ const Chat = () => {
   );
 
   return (
-    <div className="h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white flex relative overflow-hidden">
+    <div className="w-[96%] fixed h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white flex  overflow-hidden">
       {/* Sidebar Overlay - only on mobile */}
       {isSidebarOpen && (
         <div
@@ -523,7 +558,10 @@ const Chat = () => {
       >
         {/* Sidebar Header */}
         <div className="p-4 border-b border-slate-700/50 flex items-center justify-between min-w-80">
-          <h2 className="text-lg font-semibold text-white">Conversations</h2>
+          <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+            <MessageSquare size={20} className="text-emerald-400" />
+            Conversations
+          </h2>
           <button
             onClick={toggleSidebar}
             className="p-1.5 hover:bg-slate-700 rounded-md md:hidden transition-colors"
@@ -575,18 +613,29 @@ const Chat = () => {
                       {conv.title}
                     </h3>
                     {conv.lastMessage && (
-                      <p className="text-xs text-slate-400 mt-1 truncate">
+                      <p
+                        className="text-xs text-slate-400 truncate leading-relaxed"
+                        title={conv.lastMessage}
+                      >
                         {conv.lastMessage}
                       </p>
                     )}
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 font-medium">
                       {conv.timestamp}
                     </p>
                   </div>
+                  {/* Active indicator */}
+                  {conv.active && (
+                    <div className="flex-shrink-0">
+                      <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
+
+          {/* Empty state for conversations */}
         </div>
       </div>
 
@@ -624,20 +673,43 @@ const Chat = () => {
               <h1 className="font-semibold text-lg">Kap Insight Flow</h1>
               <p className="text-xs text-slate-400">
                 {fetchedConversations.find((c) => c.active)?.title ||
-                  "Ready to help you"}
+                  "Ready to help you analyze and visualize data"}
               </p>
             </div>
+          </div>
+
+          {/* Additional header actions */}
+          <div className="flex items-center gap-2">
+            {canPreview && (
+              <button
+                onClick={() => {
+                  handlePreview();
+                  setSidebarOpen(false);
+                }}
+                className={`p-2 rounded-xl transition-all duration-200 ${
+                  showPreview
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-500/25"
+                    : "bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 hover:text-white border border-slate-600/50 hover:border-blue-500/50"
+                }`}
+                title="Toggle dashboard preview"
+              >
+                {showPreview ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            )}
           </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 p-6 space-y-4 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div
+          className="flex-1 p-6 space-y-4 overflow-y-auto"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
           <style jsx>{`
             .flex-1::-webkit-scrollbar {
               display: none;
             }
           `}</style>
-          
+
           {messages.length === 0 && hasInitialized && (
             <div className="flex justify-center items-center h-full">
               <div className="text-center text-slate-400">
@@ -658,23 +730,23 @@ const Chat = () => {
               }`}
             >
               <div
-                className={`max-w-[80%] ${
+                className={`max-w-[85%] ${
                   message.sender === "user" ? "order-2" : "order-1"
                 }`}
               >
                 <div
-                  className={`p-4 rounded-2xl shadow-lg ${
+                  className={`p-4 rounded-2xl shadow-lg backdrop-blur-sm ${
                     message.sender === "user"
-                      ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white ml-auto"
-                      : "bg-slate-800/80 backdrop-blur-sm border border-slate-700/50 text-slate-100"
+                      ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white ml-auto shadow-emerald-500/20"
+                      : "bg-slate-800/90 border border-slate-700/50 text-slate-100 shadow-slate-900/20"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap leading-relaxed">
+                  <p className="whitespace-pre-wrap leading-relaxed text-sm">
                     {message.text}
                   </p>
                 </div>
                 <div
-                  className={`text-xs text-slate-500 mt-2 ${
+                  className={`text-xs text-slate-500 mt-2 font-medium ${
                     message.sender === "user" ? "text-right" : "text-left"
                   }`}
                 >
@@ -712,36 +784,19 @@ const Chat = () => {
 
         {/* Input Area */}
         <div className="p-6 bg-slate-800/50 backdrop-blur-sm border-t border-slate-700/50 flex-shrink-0">
-          <div className="relative bg-slate-700/50 rounded-2xl border border-slate-600/50 focus-within:border-emerald-500/50 transition-colors duration-200">
+          <div className="relative bg-slate-700/50 rounded-2xl border border-slate-600/50 focus-within:border-emerald-500/50 focus-within:shadow-lg focus-within:shadow-emerald-500/10 transition-all duration-200">
             <textarea
               ref={textareaRef}
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              className="w-full p-4 pr-24 bg-transparent text-white placeholder-slate-400 resize-none rounded-2xl focus:outline-none"
-              placeholder="Type your message..."
+              className="w-full p-4 bg-transparent text-white placeholder-slate-400 resize-none rounded-2xl focus:outline-none text-sm leading-relaxed"
+              placeholder="Type your message here..."
               rows={1}
               disabled={isTyping}
             />
 
-            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-              {canPreview && (
-                <button
-                  onClick={() => {
-                    handlePreview();
-                    setSidebarOpen(false);
-                  }}
-                  className={`p-2 rounded-xl transition-colors duration-200 ${
-                    showPreview
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-600 hover:bg-slate-500 text-slate-300 hover:text-white"
-                  }`}
-                  title="Toggle dashboard preview"
-                >
-                  {showPreview ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              )}
-
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
               <button
                 onClick={handleSendMessage}
                 disabled={!canSend}
@@ -760,12 +815,13 @@ const Chat = () => {
       </div>
 
       {showPreview && (
-        <div className="w-1/2 bg-white border-l border-slate-300 flex flex-col">
+        <div className=" w-1/2 bg-white border-l border-slate-300 flex flex-col">
           {/* Preview Header */}
           <div className="bg-slate-100 border-b border-slate-200 p-4 flex items-center justify-between flex-shrink-0">
             <h2 className="text-lg font-semibold text-slate-800">
               Dashboard Preview
             </h2>
+
             <div className="flex items-center gap-2">
               <button
                 onClick={handleSaveConfig}
@@ -786,30 +842,48 @@ const Chat = () => {
           </div>
 
           {/* Preview Content */}
-          <div className="flex-1 overflow-y-auto bg-gray-50">
-          {previewLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading dashboard data...</p>
+          {/* Preview Content */}
+          <div className="w-full max-w-[100%] h-full overflow-y-auto bg-gray-50 border-l border-slate-300 flex flex-col scrollbar-hide">
+            {previewLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading dashboard data...</p>
+                </div>
               </div>
-            </div>
-          ) : dashboarddata?.data?.agentIdtoFieldToFieldValueMap ? (
-            <div className="h-full w-full">
-            <DynamicAutoCharts
-              apiResponse={dashboarddata}
-              api_payload={finalPayload}
-              chartType={chartType}
-            />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="text-4xl mb-4">📊</div>
-                <p className="text-gray-600">No data available for dashboard.</p>
+            ) : configList?.data.length > 0 ? (
+              <div className="p-4">
+                {configList?.data.map((item) => {
+                  const id = item.id;
+                  const chartData = dataMap?.[id];
+                  const parsedPayload = JSON.parse(item.payload);
+                  const chartType = item.chartType;
+
+                  if (statusMap?.[id] === "succeeded" && chartData) {
+                    return (
+                      <div key={id} className="mb-6 overflow-hidden">
+                        <DynamicAutoCharts
+                          apiResponse={chartData}
+                          api_payload={parsedPayload}
+                          chartType={chartType}
+                        />
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="text-4xl mb-4">📊</div>
+                  <p className="text-gray-600">
+                    No data available for dashboard.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -826,7 +900,7 @@ const Chat = () => {
             }}
           >
             {/* Header with gradient */}
-            <div className="relative p-6 pb-4">
+            <div className="relative p-4 pb-4">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-emerald-500 rounded-t-2xl opacity-10"></div>
               <div className="relative flex items-center justify-between">
                 <div className="flex items-center space-x-3">

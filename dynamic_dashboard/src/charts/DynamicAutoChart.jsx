@@ -6,125 +6,134 @@ import GenericTableComponent from "./GenericTableComponent";
 const DynamicAutoChart = ({
   apiResponse,
   api_payload,
-  chartType, // pie, bar, line
+  chartType,
   title = "",
-  aggregateKey = "-20", // ✅ Default key for aggregate data
+  aggregateKey = "-20",
 }) => {
-  const totalKey = "-20"; // Default key for total data
+  const totalKey = "-20";
   if (!apiResponse) return <p>No data to display.</p>;
-  const aggregateData = apiResponse.data.agentIdtoFieldToFieldValueMap[Number(totalKey)] || {};
 
-  const fieldList = api_payload.keyToFieldList || {};
+  const aggregateData =
+    apiResponse.agentIdtoFieldToFieldValueMap[Number(totalKey)] || {};
 
-  if (chartType === undefined || chartType === "") {
+  const fieldList = api_payload || {};
+
+  if (!chartType) {
     chartType = "table";
   }
 
   if (chartType === "table") {
-    return <GenericTableComponent apiResponse={apiResponse} api_payload={api_payload} />;
+    return (
+      <GenericTableComponent
+        apiResponse={apiResponse}
+        api_payload={fieldList}
+      />
+    );
   }
 
-  // 🔥 Build chartData dynamically
   const chartData = Object.entries(fieldList)
     .flatMap(([section, fields]) =>
       fields.map((field) => {
-        const valuePath = `${section}.${field.key}.value`; // ✅ Correct template literal
+        const valuePath = `${section}.${field.key}.value`;
         const rawValue = get(aggregateData, valuePath);
         const value = parseFloat(rawValue);
         const isMissing = rawValue === undefined;
 
         return {
-          name: field.displayName || field.key, // fallback to key if displayName missing
+          name: field.displayName || field.key,
           value: isNaN(value) ? 0 : value,
-          itemStyle: isMissing ? { color: "#e0e0e0" } : undefined, // Gray if missing
+          itemStyle: isMissing ? { color: "#cccccc" } : undefined,
         };
       })
     )
     .filter((item) => item.name);
 
-
-  // 🎨 Common colors & gradient
-  const colors = ["#3f51b5", "#f44336", "#009688", "#ffc107", "#9c27b0"];
-  const gradient = {
-    type: "linear",
-    x: 0,
-    y: 0,
-    x2: 0,
-    y2: 1,
-    colorStops: [
-      { offset: 0, color: "#42a5f5" },
-      { offset: 1, color: "#478ed1" },
-    ],
-  };
+  const strongColors = [
+    "#3366CC",
+    "#DC3912",
+    "#FF9900",
+    "#109618",
+    "#990099",
+    "#0099C6",
+    "#DD4477",
+    "#66AA00",
+    "#B82E2E",
+    "#316395",
+  ];
 
   const getOptions = () => {
     const labels = chartData.map((item) => item.name);
     const values = chartData.map((item) => item.value);
 
     const baseOptions = {
-      backgroundColor: "#fafafa",
+      backgroundColor: "#ffffff",
       title: {
         text: title,
         left: "center",
-        textStyle: { fontSize: 20, fontWeight: "600", color: "#333" },
+        textStyle: {
+          fontSize: 22,
+          fontWeight: "bold",
+          color: "#222",
+        },
       },
       tooltip: {
-        trigger: chartType == "pie" ? "item" : "axis",
-        backgroundColor: "#333",
-        borderColor: "#ccc",
-        textStyle: { color: "#fff", fontSize: 14 },
+        trigger: chartType === "pie" ? "item" : "axis",
+        backgroundColor: "#222",
+        borderColor: "#999",
+        textStyle: {
+          color: "#fff",
+          fontSize: 14,
+        },
       },
       legend: {
         orient: "horizontal",
         bottom: 0,
-        textStyle: { fontSize: 14, color: "#666" },
+        textStyle: {
+          fontSize: 14,
+          color: "#444",
+        },
       },
       animation: true,
-      animationDuration: 1200,
+      animationDuration: 1000,
     };
 
     const seriesConfig = {
       name: "Value",
       type: chartType,
-      radius: chartType == "pie" ? ["40%", "70%"] : undefined, // Donut for pie
-      data: chartData,
-      itemStyle: {
-        borderRadius: chartType == "bar" ? 8 : 0, // Rounded bars
-        color: (params) =>
-          params.data.itemStyle?.color ||
-          colors[params.dataIndex % colors.length],
+      radius: chartType === "pie" ? ["40%", "70%"] : undefined,
+      data: chartData.map((item, index) => ({
+        ...item,
+        itemStyle: {
+          ...item.itemStyle,
+          color:
+            item.itemStyle?.color || strongColors[index % strongColors.length],
+        },
+      })),
+      label: {
+        show: true,
+        fontSize: 14,
+        color: "#222",
       },
       emphasis: {
         scale: true,
         scaleSize: 10,
         itemStyle: {
-          shadowBlur: 20,
-          shadowColor: "rgba(0, 0, 0, 0.3)",
+          shadowBlur: 15,
+          shadowColor: "rgba(0, 0, 0, 0.4)",
         },
       },
-      label: {
-        fontSize: 14,
-        color: "#555",
-      },
-      ...(chartType == "bar" && {
+      ...(chartType === "bar" && {
         barWidth: "50%",
-        itemStyle: { color: gradient },
       }),
-      ...(chartType == "line" && {
+      ...(chartType === "line" && {
         smooth: true,
-        lineStyle: { width: 4, color: gradient },
-        areaStyle: {
-          color: {
-            type: "linear",
-            x: 0,
-            y: 0,
-            x2: 0,
-            y2: 1,
-            colorStops: [
-              { offset: 0, color: "rgba(66,165,245,0.5)" },
-              { offset: 1, color: "rgba(66,165,245,0.1)" },
-            ],
-          },
+        lineStyle: {
+          width: 3,
+          color: "#3366CC",
+        },
+        symbolSize: 10,
+        itemStyle: {
+          color: "#3366CC",
         },
       }),
     };
@@ -135,14 +144,14 @@ const DynamicAutoChart = ({
         xAxis: {
           type: "category",
           data: labels,
-          axisLine: { lineStyle: { color: "#ccc" } },
-          axisLabel: { color: "#666", fontSize: 12 },
+          axisLine: { lineStyle: { color: "#aaa" } },
+          axisLabel: { color: "#333", fontSize: 13 },
         },
         yAxis: {
           type: "value",
-          axisLine: { lineStyle: { color: "#ccc" } },
-          splitLine: { lineStyle: { color: "#eee" } },
-          axisLabel: { color: "#666", fontSize: 12 },
+          axisLine: { lineStyle: { color: "#aaa" } },
+          splitLine: { lineStyle: { color: "#eaeaea" } },
+          axisLabel: { color: "#333", fontSize: 13 },
         },
       }),
       series: [seriesConfig],
@@ -151,14 +160,10 @@ const DynamicAutoChart = ({
 
   if (!chartData.length) {
     return (
-      <p style={{ color: "red", textAlign: "center" }}>
+      <p style={{ color: "red", textAlign: "center", fontWeight: "bold" }}>
         No aggregate ({aggregateKey}) data available.
       </p>
     );
-  }
-
-  if (chartType == "line") {
-    console.log("Line chart: Enabling smooth lines");
   }
 
   return (
@@ -168,14 +173,14 @@ const DynamicAutoChart = ({
         maxWidth: "950px",
         margin: "20px auto",
         background: "#fff",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+        boxShadow: "0 6px 16px rgba(0,0,0,0.12)",
         borderRadius: "12px",
-        padding: "20px",
+        padding: "24px",
       }}
     >
       <ReactECharts
         option={getOptions()}
-        style={{ height: "500px" }}
+        style={{ height: "480px" }}
         opts={{ devicePixelRatio: window.devicePixelRatio }}
       />
     </div>
