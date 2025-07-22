@@ -21,7 +21,7 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-black">
+    <div className="min-h-screen fixed w-full overflow-hidden bg-black">
       {/* Threads WebGL Background */}
       <div className="absolute inset-0 z-0">
         <Threads
@@ -121,7 +121,7 @@ const Home = () => {
 
         {/* Navigation Options */}
         <div className="flex-1 flex items-center justify-center">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 max-w-6xl w-full">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-4xl w-full">
             
             {/* Chat Option */}
             <div
@@ -136,7 +136,7 @@ const Home = () => {
             >
               <div className="absolute -inset-4 bg-gradient-to-r from-blue-400/30 to-cyan-400/30 rounded-3xl opacity-0 group-hover:opacity-60 blur-3xl transition-all duration-700 transform group-hover:scale-125" />
               <div className="relative backdrop-blur-xl bg-black/20 rounded-3xl p-12 border border-white/10 shadow-2xl transform transition-all duration-700 group-hover:bg-black/30 group-hover:border-white/20 group-hover:shadow-3xl">
-                <div className="mb-10 p-10 rounded-3xl bg-gradient-to-r from-blue-400/80 to-cyan-400/80 transform transition-all duration-500 group-hover:rotate-12 group-hover:scale-125 mx-auto w-fit shadow-2xl relative overflow-hidden">
+                <div className="mb-10 p-6 rounded-3xl bg-gradient-to-r from-blue-400/80 to-cyan-400/80 transform transition-all duration-500 group-hover:rotate-12 group-hover:scale-125 mx-auto w-fit shadow-2xl relative overflow-hidden">
                   <MessageCircle className="w-16 h-16 text-white drop-shadow-2xl relative z-10" />
                 </div>
                 <div className="text-center space-y-4">
@@ -159,7 +159,7 @@ const Home = () => {
             >
               <div className="absolute -inset-4 bg-gradient-to-r from-purple-400/30 to-pink-400/30 rounded-3xl opacity-0 group-hover:opacity-60 blur-3xl transition-all duration-700 transform group-hover:scale-125" />
               <div className="relative backdrop-blur-xl bg-black/20 rounded-3xl p-12 border border-white/10 shadow-2xl transform transition-all duration-700 group-hover:bg-black/30 group-hover:border-white/20 group-hover:shadow-3xl">
-                <div className="mb-10 p-10 rounded-3xl bg-gradient-to-r from-purple-400/80 to-pink-400/80 transform transition-all duration-500 group-hover:rotate-12 group-hover:scale-125 mx-auto w-fit shadow-2xl relative overflow-hidden">
+                <div className="mb-10 p-6 rounded-3xl bg-gradient-to-r from-purple-400/80 to-pink-400/80 transform transition-all duration-500 group-hover:rotate-12 group-hover:scale-125 mx-auto w-fit shadow-2xl relative overflow-hidden">
                   <BarChart3 className="w-16 h-16 text-white drop-shadow-2xl relative z-10" />
                 </div>
                 <div className="text-center space-y-4">

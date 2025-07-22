@@ -6,7 +6,7 @@ export const firstapicall = createAsyncThunk(
   async ({ thread_id }, { rejectWithValue }) => {
     try {
       const response = await fetch(
-        `https://3c085d57a043.ngrok-free.app/get-all-config-by-id?threadId=${thread_id}`
+        `https://9c3df7aa9036.ngrok-free.app/get-all-config-by-id?threadId=${thread_id}`
       );
 
       if (!response.ok) {

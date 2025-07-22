@@ -6,7 +6,7 @@ export const fetchConfigData = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const res = await fetch(
-        "https://3c085d57a043.ngrok-free.app/get-all-config",
+        "https://9c3df7aa9036.ngrok-free.app/get-all-config",
         {
           method: "GET",
         }

@@ -18,6 +18,9 @@ import {
   Plus,
   PanelLeft,
   PanelLeftOpen,
+  MicOff,
+  Mic,
+  Square,
 } from "lucide-react";
 import { flushSync } from "react-dom";
 import { fetchDashboardData } from "../reducers/dashboardfetch";
@@ -26,7 +29,7 @@ import { setConfigData } from "../reducers/payload";
 import { saveConfig } from "../reducers/Saveconfig";
 import { toast } from "react-toastify";
 import { firstapicall } from "../reducers/firstapicall";
-
+import VoiceRecorder from "./VoiceRecorder";
 const Chat = () => {
   // State management
   const dispatch = useDispatch();
@@ -63,29 +66,37 @@ const Chat = () => {
   const configList = useSelector((state) => state.firstapicall.data);
   const { dataMap, statusMap } = useSelector((state) => state.dashboardData);
 
+  const fileInputRef = useRef(null);
+
   // FIX 1: Prevent duplicate dashboard API calls with proper dependency tracking
   useEffect(() => {
-    if (finalPayload && !dashboardDataFetched) {
-      setPreviewLoading(true);
-      setDashboardDataFetched(true);
+    setPreviewLoading(true);
+    setDashboardDataFetched(true);
 
-      // Dispatch setConfigData immediately
-      dispatch(setConfigData(finalPayload));
+    // Dispatch setConfigData immediately
+    dispatch(setConfigData(finalPayload));
 
-      // Delay dispatching firstapicall
-      const timeout = setTimeout(() => {
-        dispatch(firstapicall({ thread_id: threadId }));
-      }, 1000); // 1000ms = 1 second
+    // Delay dispatching firstapicall
+    const timeout = setTimeout(() => {
+      dispatch(firstapicall({ thread_id: threadId }));
+    }, 3500); // 1000ms = 1 second
 
-      // Cleanup
-      return () => clearTimeout(timeout);
-    }
+    // Cleanup
+    return () => clearTimeout(timeout);
   }, [finalPayload, dispatch, dashboardDataFetched, threadId]);
 
   const dispatchedIdsRef = useRef(new Set());
+  useEffect(() => {
+    if (showSaveModal) {
+      const nameFromPayload = configList?.data?.[0]?.dashboardName;
+      if (nameFromPayload) {
+        setDashboardName(nameFromPayload);
+      }
+    }
+  }, [showSaveModal, configList]);
 
   useEffect(() => {
-    if (configList?.data && Array.isArray(configList.data)) {
+    if (configList?.data.length > 0 && Array.isArray(configList.data)) {
       configList.data.forEach((item) => {
         try {
           const parsedPayload = JSON.parse(item.payload);
@@ -97,7 +108,7 @@ const Chat = () => {
           console.error("Error parsing payload for item:", item.id, err);
         }
       });
-    }
+    } else setPreviewLoading(false);
   }, [configList, dispatch]);
 
   // FIX 2: Reset dashboard fetch flag when finalPayload changes
@@ -112,7 +123,7 @@ const Chat = () => {
     const fetchConversationsFromAPI = async () => {
       try {
         const response = await fetch(
-          "https://3c085d57a043.ngrok-free.app/get-all-dashboard-conv-config"
+          "https://9c3df7aa9036.ngrok-free.app/get-all-dashboard-conv-config"
         );
         const result = await response.json();
 
@@ -199,6 +210,20 @@ const Chat = () => {
     [inputMessage, isTyping]
   );
 
+  const handleVoiceTranscription = (transcribedText) => {
+    setInputMessage((prev) => {
+      // Append to existing message or replace if empty
+      const newText = prev.trim()
+        ? `${prev} ${transcribedText}`
+        : transcribedText;
+      return newText;
+    });
+
+    // Auto-focus textarea after transcription
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  };
   // Auto-scroll to bottom
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -249,7 +274,7 @@ const Chat = () => {
         };
 
         const response = await fetch(
-          "https://3c085d57a043.ngrok-free.app/kapture/dashboard/payload",
+          "https://4638ed285e3f.ngrok-free.app/kapture/dashboard/payload",
           {
             method: "POST",
             headers: {
@@ -541,7 +566,7 @@ const Chat = () => {
   );
 
   return (
-    <div className="w-[96%] fixed h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white flex  overflow-hidden">
+    <div className="w-full  h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white flex  overflow-hidden">
       {/* Sidebar Overlay - only on mobile */}
       {isSidebarOpen && (
         <div
@@ -797,6 +822,12 @@ const Chat = () => {
             />
 
             <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+              <VoiceRecorder
+                onTranscriptionComplete={handleVoiceTranscription}
+                disabled={isTyping}
+                apiEndpoint="https://9c3df7aa9036.ngrok-free.app/api/voice-to-text"
+                size={18}
+              />
               <button
                 onClick={handleSendMessage}
                 disabled={!canSend}
@@ -810,6 +841,12 @@ const Chat = () => {
                 <Send size={18} />
               </button>
             </div>
+          </div>
+          <div className="mt-2 text-center">
+            {/* <p className="text-slate-400 text-xs">
+              Click mic to record voice • Press Enter to send • Shift+Enter for
+              new line
+            </p> */}
           </div>
         </div>
       </div>

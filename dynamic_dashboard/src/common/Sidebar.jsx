@@ -47,14 +47,16 @@ const Sidebar = ({ isOpen = true, setIsOpen = () => {} }) => {
         <div className="space-y-2 flex-shrink-0">
           <SidebarButton icon={<SettingsIcon />} />
           <div className="relative group flex justify-center items-center">
-            <img
-              src="/kapImg.svg"
-              alt="Kapture logo"
-              className="w-6 h-6 object-contain"
-            />
-            <span className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-              Kapture-CX
-            </span>
+            <button onClick={() => navigate("/")}>
+              <img
+                src="/kapImg.svg"
+                alt="Kapture logo"
+                className="w-8 h-8 object-contain"
+              />
+              <span className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                Kapture-CX
+              </span>
+            </button>
           </div>
         </div>
       </div>

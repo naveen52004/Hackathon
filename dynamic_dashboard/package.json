@@ -25,7 +25,9 @@
     "react-dom": "^19.1.0",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.7.0",
-    "tailwindcss": "^4.1.11"
+    "react-toastify": "^11.0.5",
+    "tailwindcss": "^4.1.11",
+    "three": "^0.178.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",

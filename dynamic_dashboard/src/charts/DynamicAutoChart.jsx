@@ -169,7 +169,7 @@ const DynamicAutoChart = ({
   return (
     <div
       style={{
-        width: "100%",
+        width: window.location.pathname === "/dashboard" ? "85%" : "100%",
         maxWidth: "950px",
         margin: "20px auto",
         background: "#fff",
